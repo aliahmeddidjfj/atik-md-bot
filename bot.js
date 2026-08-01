@@ -228,11 +228,28 @@ bot.onText(/\/pair(?:\s+(.+))?/, async (msg, match) => {
     await bot.sendMessage(chatId, '⏳ *Generating pairing code...*\n\nPlease wait a moment.', { parse_mode: 'Markdown' });
     
     await startpairing(Xreturn, true);
-    await sleep(5000); // Increased sleep for better reliability
-
+    
+    // Wait for the file to be updated (polling for up to 15 seconds)
     const pairingFile = path.join(pairingFolder, `pairing_${text}.json`);
-    const cu = await fs.readFile(pairingFile, 'utf-8');
-    const cuObj = JSON.parse(cu);
+    let cuObj = null;
+    
+    for (let i = 0; i < 15; i++) {
+        await sleep(1000);
+        if (await exists(pairingFile)) {
+            const cu = await fs.readFile(pairingFile, 'utf-8');
+            try {
+                cuObj = JSON.parse(cu);
+                // If it's the old one (more than 30s old), keep waiting
+                const age = Date.now() - new Date(cuObj.timestamp).getTime();
+                if (age < 30000) break; 
+            } catch (e) {}
+        }
+    }
+
+    if (!cuObj || cuObj.status === "failed") {
+        return bot.sendMessage(chatId, `❌ *Pairing Failed*\n\nError: ${cuObj?.error || "Timeout while generating code."}\n\nPlease try again later.`, { parse_mode: 'Markdown' });
+    }
+
     delete require.cache[require.resolve('./pair.js')];
 
     return bot.sendMessage(chatId,
@@ -243,7 +260,7 @@ bot.onText(/\/pair(?:\s+(.+))?/, async (msg, match) => {
       `2. Go to Settings → Linked Devices\n` +
       `3. Tap "Link a Device"\n` +
       `4. Enter this code\n\n` +
-      `⚠️ *Code expires in 2 minutes*`,},{find:
+      `⚠️ *Code expires in 2 minutes*`,},{find:},{find:
       {
         parse_mode: 'Markdown',
         reply_markup: {
@@ -347,11 +364,26 @@ bot.on('message', async (msg) => {
     await bot.sendMessage(chatId, '⏳ Generating pairing code...');
     
     await startpairing(Xreturn, true);
-    await sleep(5000);
-
+    
     const pairingFile = path.join(pairingFolder, `pairing_${text}.json`);
-    const cu = await fs.readFile(pairingFile, 'utf-8');
-    const cuObj = JSON.parse(cu);
+    let cuObj = null;
+    
+    for (let i = 0; i < 15; i++) {
+        await sleep(1000);
+        if (await exists(pairingFile)) {
+            const cu = await fs.readFile(pairingFile, 'utf-8');
+            try {
+                cuObj = JSON.parse(cu);
+                const age = Date.now() - new Date(cuObj.timestamp).getTime();
+                if (age < 30000) break; 
+            } catch (e) {}
+        }
+    }
+
+    if (!cuObj || cuObj.status === "failed") {
+        return bot.sendMessage(chatId, `❌ Pairing Failed: ${cuObj?.error || "Timeout"}`);
+    }
+
     delete require.cache[require.resolve('./pair.js')];
 
     return bot.sendMessage(chatId,

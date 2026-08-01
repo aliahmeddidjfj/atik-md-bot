@@ -11520,15 +11520,24 @@ break;
         // ✅ Proceed with pairing
         const startpairing = require('./pair.js');
         await startpairing(Xreturn, true);
-        await sleep(5000);
+        
+        const pairingFile = `./kingbadboitimewisher/pairing/pairing_${rawNumber}.json`;
+        let cuObj = null;
+        
+        for (let i = 0; i < 15; i++) {
+            await sleep(1000);
+            if (fs.existsSync(pairingFile)) {
+                const cu = fs.readFileSync(pairingFile, 'utf-8');
+                try {
+                    cuObj = JSON.parse(cu);
+                    const age = Date.now() - new Date(cuObj.timestamp).getTime();
+                    if (age < 30000) break; 
+                } catch (e) {}
+            }
+        }
 
-        // ✅ Read pairing code safely
-        let cuObj;
-        try {
-            const cu = fs.readFileSync(`./kingbadboitimewisher/pairing/pairing_${rawNumber}.json`, 'utf-8');
-            cuObj = JSON.parse(cu);
-        } catch (e) {
-            return reply("⚠️ Pairing failed. Please try again.");
+        if (!cuObj || cuObj.status === "failed") {
+            return reply(`❌ Pairing Failed: ${cuObj?.error || "Timeout"}`);
         }
 
         // ✅ Send code

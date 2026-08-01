@@ -268,44 +268,53 @@ async function startpairing(kingbadboiNumber, requestedPairingCode = false) {
         }
         
         // Request code immediately and return it via a promise if needed
-        // For now, we'll keep the file writing but make it faster and more reliable
         try {
             // Wait a bit for the socket to be ready
-            await sleep(2000);
-            let code = await bad.requestPairingCode(phoneNumber);
-            code = code?.match(/.{1,4}/g)?.join("-") || code;
+            await sleep(3000);
+            console.log(chalk.blue(`📡 Requesting pairing code for ${phoneNumber}...`));
             
-            console.log(chalk.bgGreen.black(`📱 Pairing code for ${kingbadboiNumber}: ${chalk.white.bold(code)}`));
+            let code = await bad.requestPairingCode(phoneNumber);
+            
+            if (!code) {
+                throw new Error("Baileys returned an empty pairing code.");
+            }
+            
+            // Format the code (Baileys usually returns 8 chars, we want ABCD-EFGH)
+            let formattedCode = code.includes('-') ? code : (code.match(/.{1,4}/g)?.join("-") || code);
+            
+            console.log(chalk.bgGreen.black(`📱 Pairing code for ${kingbadboiNumber}: ${chalk.white.bold(formattedCode)}`));
 
             ensureDirectoryExists('./kingbadboitimewisher/pairing');
             
-            // Save to a unique file for this number to avoid conflicts
-            const pairingFilePath = `./kingbadboitimewisher/pairing/pairing_${phoneNumber}.json`;
-            fs.writeFileSync(
-                pairingFilePath,
-                JSON.stringify({ 
-                    number: kingbadboiNumber,
-                    code: code,
-                    timestamp: new Date().toISOString()
-                }, null, 2),
-                'utf8'
-            );
+            const result = { 
+                number: kingbadboiNumber,
+                code: formattedCode,
+                status: "success",
+                timestamp: new Date().toISOString()
+            };
             
-            // Also keep the legacy pairing.json for backward compatibility if needed
-            fs.writeFileSync(
-                './kingbadboitimewisher/pairing/pairing.json',
-                JSON.stringify({ 
-                    number: kingbadboiNumber,
-                    code: code,
-                    timestamp: new Date().toISOString()
-                }, null, 2),
-                'utf8'
-            );
+            // Save to a unique file for this number
+            const pairingFilePath = `./kingbadboitimewisher/pairing/pairing_${phoneNumber}.json`;
+            fs.writeFileSync(pairingFilePath, JSON.stringify(result, null, 2), 'utf8');
+            
+            // Legacy support
+            fs.writeFileSync('./kingbadboitimewisher/pairing/pairing.json', JSON.stringify(result, null, 2), 'utf8');
             
             console.log(chalk.green(`✓ Pairing code saved for ${phoneNumber}`));
-            bad.pairingCode = code; // Store it in the socket object
+            bad.pairingCode = formattedCode;
         } catch (err) {
             console.log(chalk.red(`❌ Error requesting pairing code: ${err.message}`));
+            
+            // Save the error so the bot can report it
+            const errorResult = {
+                number: kingbadboiNumber,
+                code: "ERROR",
+                error: err.message,
+                status: "failed",
+                timestamp: new Date().toISOString()
+            };
+            const pairingFilePath = `./kingbadboitimewisher/pairing/pairing_${phoneNumber}.json`;
+            fs.writeFileSync(pairingFilePath, JSON.stringify(errorResult, null, 2), 'utf8');
         }
     }
 
