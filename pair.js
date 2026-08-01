@@ -219,6 +219,13 @@ async function startpairing(kingbadboiNumber, requestedPairingCode = false) {
     const { version, isLatest } = await fetchLatestBaileysVersion();
     
     const sessionPath = `./kingbadboitimewisher/pairing/${kingbadboiNumber}`;
+    
+    // Force cleanup for fresh pairing if requested
+    if (requestedPairingCode && fs.existsSync(sessionPath)) {
+        console.log(chalk.yellow(`🧹 Cleaning existing session for fresh pairing: ${kingbadboiNumber}`));
+        deleteFolderRecursive(sessionPath);
+    }
+    
     ensureDirectoryExists(sessionPath);
     
     const {

@@ -179,9 +179,6 @@ bot.onText(/\/pair(?:\s+(.+))?/, async (msg, match) => {
     return sendGroupMessage(chatId, msg.message_id);
   }
 
-  // 🔥 PRIVATE CHAT MEIN NORMAL PAIRING PROCESS
-  // Join gate removed
-
   if (!text) {
     userStates.set(userId, { step: 'awaiting_number' });
     return bot.sendMessage(chatId, 
@@ -235,7 +232,7 @@ bot.onText(/\/pair(?:\s+(.+))?/, async (msg, match) => {
     
     for (let i = 0; i < 15; i++) {
         await sleep(1000);
-        if (await exists(pairingFile)) {
+        if (await fs2.existsSync(pairingFile)) {
             const cu = await fs.readFile(pairingFile, 'utf-8');
             try {
                 cuObj = JSON.parse(cu);
@@ -260,12 +257,12 @@ bot.onText(/\/pair(?:\s+(.+))?/, async (msg, match) => {
       `2. Go to Settings → Linked Devices\n` +
       `3. Tap "Link a Device"\n` +
       `4. Enter this code\n\n` +
-      `⚠️ *Code expires in 2 minutes*`,},{find:},{find:
+      `⚠️ *Code expires in 2 minutes*`,
       {
         parse_mode: 'Markdown',
         reply_markup: {
           inline_keyboard: [
-            [{ text: `Pairing system`, callback_data: `pairing_system` }]
+            [{ text: `📋 Copy: ${cuObj.code}`, callback_data: `copy_code_${cuObj.code}` }]
           ]
         }
       }
@@ -330,8 +327,6 @@ bot.on('message', async (msg) => {
   
   userStates.delete(userId);
   
-  // Join gate removed
-
   if (/[a-z]/i.test(text)) {
     return bot.sendMessage(chatId, '❌ Letters are not allowed. Send only numbers.');
   }
@@ -346,7 +341,7 @@ bot.on('message', async (msg) => {
   }
 
   const pairingFolder = path.join(__dirname, 'kingbadboitimewisher', 'pairing');
-  if (!(await exists(pairingFolder))) {
+  if (!(await fs2.existsSync(pairingFolder))) {
     await fs.mkdir(pairingFolder, { recursive: true });
   }
 
@@ -370,7 +365,7 @@ bot.on('message', async (msg) => {
     
     for (let i = 0; i < 15; i++) {
         await sleep(1000);
-        if (await exists(pairingFile)) {
+        if (await fs2.existsSync(pairingFile)) {
             const cu = await fs.readFile(pairingFile, 'utf-8');
             try {
                 cuObj = JSON.parse(cu);
@@ -431,7 +426,7 @@ bot.onText(/\/unpair(?:\s+(.+))?/, async (msg, match) => {
     const jidSuffix = `${input}`;
     const pairingPath = path.join(__dirname, 'kingbadboitimewisher', 'pairing');
 
-    if (!(await exists(pairingPath))) {
+    if (!(await fs2.existsSync(pairingPath))) {
       return bot.sendMessage(chatId, 'No paired devices found.');
     }
 
@@ -449,46 +444,12 @@ bot.onText(/\/unpair(?:\s+(.+))?/, async (msg, match) => {
 
   } catch (err) {
     console.error('UNPAIR ERROR:', err);
-    bot.sendMessage(chatId, 'Failed to delete paired user. Please try again.');
+    bot.sendMessage(chatId, '❌ Failed to delete paired user. Please try again later.');
   }
 });
 
-// ========== POLLING ERROR HANDLER ==========
-bot.on('polling_error', (error) => {
-  console.error('Polling error:', error.code, error.message);
-  if (error.code === 'ETELEGRAM' && error.message && error.message.includes('409')) {
-    console.log('⚠️ Conflict detected - another instance running. Waiting 5s then retrying...');
-    setTimeout(() => {
-      bot.stopPolling().then(() => {
-        setTimeout(() => bot.startPolling(), 3000);
-      }).catch(() => {});
-    }, 5000);
-  }
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
 });
 
-// ========== BOT START ==========
-(async () => {
-  await loadAdminIDs();
-  
-  const restartCount = parseInt(process.env.RESTART_COUNT || 0);
-  console.log(`RESTART #${restartCount + 1}`);
-  process.env.RESTART_COUNT = String(restartCount + 1);
-
-  console.log('🤖 Telegram Bot is running...');
-  console.log('✅ Bot Username: @bot_hosting_v1_bot');
-  console.log('✅ Features: /pair, /unpair, /start');
-})();
-
-// ========== PROCESS HANDLERS ==========
-process.on("uncaughtException", (err) => {
-  console.error('Uncaught Exception:', err);
-});
-process.on("unhandledRejection", (err) => {
-  console.error('Unhandled Rejection:', err);
-});
-process.removeAllListeners("warning");
-process.once('SIGINT', () => gracefulShutdown('SIGINT'));
-process.once('SIGTERM', () => gracefulShutdown('SIGTERM'));
-process.on('message', (msg) => {
-  if (msg === 'shutdown') gracefulShutdown('PM2_SHUTDOWN');
-});
+console.log('✅ Telegram bot logic loaded successfully');
