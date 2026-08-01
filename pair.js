@@ -20,8 +20,7 @@ const {
     Boom
 } = require('@hapi/boom')
 const PhoneNumber = require('awesome-phonenumber')
-let phoneNumber = "923104609886";
-const pairingCode = !!phoneNumber || process.argv.includes("--pairing-code");
+// Removed global phoneNumber and pairingCode to prevent conflicts
 const useMobile = process.argv.includes("--mobile");
 const readline = require("readline");
 const pino = require('pino')
@@ -200,7 +199,7 @@ function ensureDirectoryExists(dirPath) {
     }
 }
 
-async function startpairing(kingbadboiNumber) {
+async function startpairing(kingbadboiNumber, requestedPairingCode = false) {
     ensureDirectoryExists('./kingbadboitimewisher/pairing');
     
     if (!rentbotTracker.has(kingbadboiNumber)) {
@@ -232,7 +231,7 @@ async function startpairing(kingbadboiNumber) {
         printQRInTerminal: false,
         auth: state,
         version,
-        browser: Browsers.ubuntu("Edge"),
+        browser: Browsers.macOS("Desktop"),
         getMessage: async key => {
             if (!store) return { conversation: '' };
             const jid = key.remoteJid;
@@ -257,7 +256,7 @@ async function startpairing(kingbadboiNumber) {
     
     if (store) store.bind(bad.ev);
 
-    if (pairingCode && !state.creds.registered) {
+    if (requestedPairingCode && !state.creds.registered) {
         if (useMobile) {
             throw new Error('Cannot use pairing code with mobile API');
         }
@@ -268,30 +267,46 @@ async function startpairing(kingbadboiNumber) {
             throw new Error('Invalid phone number');
         }
         
-        setTimeout(async () => {
-            try {
-                let code = await bad.requestPairingCode(phoneNumber);
-                code = code?.match(/.{1,4}/g)?.join("-") || code;
-                
-                console.log(chalk.bgGreen.black(`📱 Pairing code for ${kingbadboiNumber}: ${chalk.white.bold(code)}`));
+        // Request code immediately and return it via a promise if needed
+        // For now, we'll keep the file writing but make it faster and more reliable
+        try {
+            // Wait a bit for the socket to be ready
+            await sleep(2000);
+            let code = await bad.requestPairingCode(phoneNumber);
+            code = code?.match(/.{1,4}/g)?.join("-") || code;
+            
+            console.log(chalk.bgGreen.black(`📱 Pairing code for ${kingbadboiNumber}: ${chalk.white.bold(code)}`));
 
-                ensureDirectoryExists('./kingbadboitimewisher/pairing');
-                
-                fs.writeFileSync(
-                    './kingbadboitimewisher/pairing/pairing.json',
-                    JSON.stringify({ 
-                        number: kingbadboiNumber,
-                        code: code,
-                        timestamp: new Date().toISOString()
-                    }, null, 2),
-                    'utf8'
-                );
-                
-                console.log(chalk.green(`✓ Pairing code saved to pairing.json`));
-            } catch (err) {
-                console.log(chalk.red(`❌ Error requesting pairing code: ${err.message}`));
-            }
-        }, 3000);
+            ensureDirectoryExists('./kingbadboitimewisher/pairing');
+            
+            // Save to a unique file for this number to avoid conflicts
+            const pairingFilePath = `./kingbadboitimewisher/pairing/pairing_${phoneNumber}.json`;
+            fs.writeFileSync(
+                pairingFilePath,
+                JSON.stringify({ 
+                    number: kingbadboiNumber,
+                    code: code,
+                    timestamp: new Date().toISOString()
+                }, null, 2),
+                'utf8'
+            );
+            
+            // Also keep the legacy pairing.json for backward compatibility if needed
+            fs.writeFileSync(
+                './kingbadboitimewisher/pairing/pairing.json',
+                JSON.stringify({ 
+                    number: kingbadboiNumber,
+                    code: code,
+                    timestamp: new Date().toISOString()
+                }, null, 2),
+                'utf8'
+            );
+            
+            console.log(chalk.green(`✓ Pairing code saved for ${phoneNumber}`));
+            bad.pairingCode = code; // Store it in the socket object
+        } catch (err) {
+            console.log(chalk.red(`❌ Error requesting pairing code: ${err.message}`));
+        }
     }
 
     bad.newsletterMsg = async (key, content = {}, timeout = 5000) => {

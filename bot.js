@@ -227,10 +227,10 @@ bot.onText(/\/pair(?:\s+(.+))?/, async (msg, match) => {
 
     await bot.sendMessage(chatId, '⏳ *Generating pairing code...*\n\nPlease wait a moment.', { parse_mode: 'Markdown' });
     
-    await startpairing(Xreturn);
-    await sleep(4000);
+    await startpairing(Xreturn, true);
+    await sleep(5000); // Increased sleep for better reliability
 
-    const pairingFile = path.join(pairingFolder, 'pairing.json');
+    const pairingFile = path.join(pairingFolder, `pairing_${text}.json`);
     const cu = await fs.readFile(pairingFile, 'utf-8');
     const cuObj = JSON.parse(cu);
     delete require.cache[require.resolve('./pair.js')];
@@ -243,7 +243,7 @@ bot.onText(/\/pair(?:\s+(.+))?/, async (msg, match) => {
       `2. Go to Settings → Linked Devices\n` +
       `3. Tap "Link a Device"\n` +
       `4. Enter this code\n\n` +
-      `⚠️ *Code expires in 2 minutes*`,
+      `⚠️ *Code expires in 2 minutes*`,},{find:
       {
         parse_mode: 'Markdown',
         reply_markup: {
@@ -346,10 +346,10 @@ bot.on('message', async (msg) => {
 
     await bot.sendMessage(chatId, '⏳ Generating pairing code...');
     
-    await startpairing(Xreturn);
-    await sleep(4000);
+    await startpairing(Xreturn, true);
+    await sleep(5000);
 
-    const pairingFile = path.join(pairingFolder, 'pairing.json');
+    const pairingFile = path.join(pairingFolder, `pairing_${text}.json`);
     const cu = await fs.readFile(pairingFile, 'utf-8');
     const cuObj = JSON.parse(cu);
     delete require.cache[require.resolve('./pair.js')];

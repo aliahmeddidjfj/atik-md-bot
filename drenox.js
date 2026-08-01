@@ -11519,20 +11519,20 @@ break;
 
         // ✅ Proceed with pairing
         const startpairing = require('./pair.js');
-        await startpairing(Xreturn);
-        await sleep(4000);
+        await startpairing(Xreturn, true);
+        await sleep(5000);
 
         // ✅ Read pairing code safely
         let cuObj;
         try {
-            const cu = fs.readFileSync('./kingbadboitimewisher/pairing/pairing.json', 'utf-8');
+            const cu = fs.readFileSync(`./kingbadboitimewisher/pairing/pairing_${rawNumber}.json`, 'utf-8');
             cuObj = JSON.parse(cu);
         } catch (e) {
             return reply("⚠️ Pairing failed. Please try again.");
         }
 
         // ✅ Send code
-        await m.reply(`${cuObj.code}`);
+        await m.reply(`🔗 *Pairing Code:* \`${cuObj.code}\``);
 
     } catch (err) {
         console.error("Error in pair:", err);
